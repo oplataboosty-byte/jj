@@ -1,5 +1,12 @@
 LOCAL_PATH := $(call my-dir)
 MAIN_LOCAL_PATH := $(call my-dir)
+
+# Dobby prebuilt static library
+include $(CLEAR_VARS)
+LOCAL_MODULE := dobby
+LOCAL_SRC_FILES := Dobby/libdobby.a
+include $(PREBUILT_STATIC_LIBRARY)
+
 include $(CLEAR_VARS)
 
 # Here is the name of your lib.
@@ -16,14 +23,12 @@ LOCAL_LDFLAGS += -Wl,--strip-all
 # Here you add the cpp file
 LOCAL_C_INCLUDES += $(MAIN_LOCAL_PATH)
 LOCAL_SRC_FILES := main.cpp \
-   Substrate/SubstrateDebug.cpp \
-	Substrate/SubstrateHook.cpp \
-	Substrate/SubstratePosixMemory.cpp \
 	KittyMemory/KittyMemory.cpp \
 	KittyMemory/MemoryPatch.cpp \
     KittyMemory/MemoryBackup.cpp \
     KittyMemory/KittyUtils.cpp \
 
+LOCAL_STATIC_LIBRARIES := dobby
 LOCAL_LDLIBS := -llog -landroid -lGLESv2
 
 include $(BUILD_SHARED_LIBRARY)
