@@ -9,6 +9,7 @@
 #include <chrono>
 #include <string>
 #include <android/log.h>
+#include <cmath>
 
 #define LOG_TAG "MyLib"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
@@ -79,10 +80,60 @@ static inline float readFloat(uintptr_t offset) {
     uintptr_t addr = getAbsoluteAddress(libName, offset);
     return addr ? *(float*)addr : 0.f;
 }
+static inline void writeInt(uintptr_t offset, int val) {
+    uintptr_t addr = getAbsoluteAddress(libName, offset);
+    if (addr) *(int*)addr = val;
+}
 
 // ---- Known globals (from binary analysis) ----
-#define OFFSET_GRAVITY   0x94e3c0   // float 0.008 — world gravity
-#define OFFSET_FOV       0x976b60   // float 45.0  — camera FOV
+#define OFFSET_GRAVITY      0x94e3c0   // float 0.008 — world gravity
+#define OFFSET_FOV          0x976b60   // float 45.0  — camera FOV
+#define OFFSET_PED_CONT     0x4c4d600  // ptr → ptr → CPed
+
+// ---- CPed struct offsets (confirmed by disassembly) ----
+#define PED_POS_X    0x38
+#define PED_POS_Y    0x3c
+#define PED_POS_Z    0x40
+#define PED_VEL_X    0x44
+#define PED_VEL_Y    0x48
+#define PED_VEL_Z    0x4c
+#define PED_ANGLE    0x50
+#define PED_HEALTH   0xb4
+#define PED_ARMOR    0xb8
+#define PED_VEHICLE  0x3e0
+#define PED_SPRINT   0x5E0   // float sprint energy; ≥999999 = infinite
+
+// weapon slot at 0x5bc (ammo in clip), 0x5c0 (total ammo)
+#define PED_AMMO_CLIP   0x5bc
+#define PED_AMMO_TOTAL  0x5c0
+
+// ---- CVehicle struct offsets ----
+#define VEH_POS_X    0x38
+#define VEH_POS_Y    0x3c
+#define VEH_POS_Z    0x40
+#define VEH_VEL_X    0x44
+#define VEH_VEL_Y    0x48
+#define VEH_VEL_Z    0x4c
+#define VEH_ANGLE    0x50
+#define VEH_HEALTH   0x368   // float max 1000.0
+
+// ---- Player / vehicle getters ----
+static inline uintptr_t getPlayerPed() {
+    uintptr_t base = getAbsoluteAddress(libName, OFFSET_PED_CONT);
+    if (!base) return 0;
+    uintptr_t cont = *(uintptr_t*)base;
+    if (!cont) return 0;
+    return *(uintptr_t*)cont;
+}
+
+static inline uintptr_t getVehicle(uintptr_t ped) {
+    if (!ped) return 0;
+    return *(uintptr_t*)(ped + PED_VEHICLE);
+}
+
+// ---- Sky color table (binary analysis: 0x93c860, byte RGB triples) ----
+#define OFFSET_SKY_TABLE  0x93c860
+#define SKY_TABLE_ENTRIES 64   // time-of-day entries
 
 JNIEXPORT jobjectArray JNICALL Java_il2cpp_Main_getFeatures(JNIEnv *env, jobject activityObject) {
     jobjectArray ret;
@@ -94,10 +145,10 @@ JNIEXPORT jobjectArray JNICALL Java_il2cpp_Main_getFeatures(JNIEnv *env, jobject
         "page_Визуал_visual.png",
 
         // Blocks per page
-        "BLOCK_0_0,1",    // page 0: blocks 0,1
-        "BLOCK_1_2,3",    // page 1: blocks 2,3
-        "BLOCK_2_4,5",    // page 2: blocks 4,5
-        "BLOCK_3_6,7",    // page 3: blocks 6,7
+        "BLOCK_0_0,1",
+        "BLOCK_1_2,3",
+        "BLOCK_2_4,5",
+        "BLOCK_3_6,7",
 
         // ===== Персонаж (page 0) =====
         "h1_0_1_Скорость",
@@ -154,22 +205,222 @@ JNIEXPORT jobjectArray JNICALL Java_il2cpp_Main_getFeatures(JNIEnv *env, jobject
     return ret;
 }
 
+// ---- Game loop: per-frame features ----
+static void gameLoop() {
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+        uintptr_t ped = getPlayerPed();
+        if (!ped) continue;
+
+        uintptr_t vehicle = getVehicle(ped);
+
+        // --- Speed ---
+        if (b_Speed) {
+            if (vehicle) {
+                float vx = *(float*)(vehicle + VEH_VEL_X);
+                float vy = *(float*)(vehicle + VEH_VEL_Y);
+                float vz = *(float*)(vehicle + VEH_VEL_Z);
+                float spd = sqrtf(vx*vx + vy*vy + vz*vz);
+                if (spd > 0.08f && spd < 0.9f) {
+                    float sc = 1.6f;
+                    *(float*)(vehicle + VEH_VEL_X) = vx * sc;
+                    *(float*)(vehicle + VEH_VEL_Y) = vy * sc;
+                    *(float*)(vehicle + VEH_VEL_Z) = vz * sc;
+                }
+            } else {
+                float vx = *(float*)(ped + PED_VEL_X);
+                float vy = *(float*)(ped + PED_VEL_Y);
+                float spd = sqrtf(vx*vx + vy*vy);
+                if (spd > 0.03f && spd < 0.5f) {
+                    float sc = 2.5f;
+                    *(float*)(ped + PED_VEL_X) = vx * sc;
+                    *(float*)(ped + PED_VEL_Y) = vy * sc;
+                }
+            }
+        }
+
+        // --- InfSprint: game checks sprint >= 999999 for infinite ---
+        if (b_InfSprint) {
+            *(float*)(ped + PED_SPRINT) = 999999.0f;
+        }
+
+        // --- Slap: push player upward momentarily ---
+        if (b_Slap && !vehicle) {
+            *(float*)(ped + PED_VEL_Z) = 0.25f;
+        }
+
+        // --- SpinnerPed: rotate heading each tick ---
+        if (b_SpinnerPed) {
+            float a = *(float*)(ped + PED_ANGLE);
+            a += 0.18f;
+            if (a > 3.14159f) a -= 6.28318f;
+            *(float*)(ped + PED_ANGLE) = a;
+        }
+
+        // --- LongJump: boost upward velocity while ascending ---
+        if (b_LongJump && !vehicle) {
+            float vz = *(float*)(ped + PED_VEL_Z);
+            if (vz > 0.15f && vz < 0.6f) {
+                *(float*)(ped + PED_VEL_Z) = vz * 2.8f;
+            }
+        }
+
+        // --- AntiAFK: nudge velocity to fake activity ---
+        if (b_AntiAFK) {
+            static int afkTick = 0;
+            afkTick++;
+            if (afkTick % 40 == 0) {
+                float vx = *(float*)(ped + PED_VEL_X);
+                *(float*)(ped + PED_VEL_X) = vx + 0.0001f;
+            }
+        }
+
+        // --- FlyPed: sustain upward velocity on foot ---
+        if (b_FlyPed && !vehicle) {
+            *(float*)(ped + PED_VEL_Z) = 0.12f;
+        }
+
+        // --- FastTurn: rotate player quickly toward motion ---
+        if (b_FastTurn && !vehicle) {
+            float vx = *(float*)(ped + PED_VEL_X);
+            float vy = *(float*)(ped + PED_VEL_Y);
+            float spd = sqrtf(vx*vx + vy*vy);
+            if (spd > 0.02f) {
+                float targetAngle = atan2f(-vx, vy);
+                *(float*)(ped + PED_ANGLE) = targetAngle;
+            }
+        }
+
+        // --- AirBrake: zero all velocity ---
+        if (b_AirBrake) {
+            if (vehicle) {
+                *(float*)(vehicle + VEH_VEL_X) = 0.0f;
+                *(float*)(vehicle + VEH_VEL_Y) = 0.0f;
+                *(float*)(vehicle + VEH_VEL_Z) = 0.0f;
+            } else {
+                *(float*)(ped + PED_VEL_X) = 0.0f;
+                *(float*)(ped + PED_VEL_Y) = 0.0f;
+                *(float*)(ped + PED_VEL_Z) = 0.0f;
+            }
+        }
+
+        // --- WalkWater: prevent sinking below surface ---
+        if (b_WalkWater && !vehicle) {
+            float z = *(float*)(ped + PED_POS_Z);
+            if (z < 0.3f) {
+                *(float*)(ped + PED_VEL_Z) = 0.08f;
+            }
+        }
+
+        // --- InfAmmo: keep clip and total ammo maxed ---
+        if (b_InfAmmo) {
+            *(int*)(ped + PED_AMMO_CLIP)  = 9999;
+            *(int*)(ped + PED_AMMO_TOTAL) = 9999;
+        }
+
+        // --- CarGod: max vehicle health every frame ---
+        if (b_CarGod && vehicle) {
+            *(float*)(vehicle + VEH_HEALTH) = 1000.0f;
+        }
+
+        // --- InfEngine: keep engine health full ---
+        if (b_InfEngine && vehicle) {
+            *(float*)(vehicle + 0x4A4) = 1000.0f;
+        }
+
+        // --- GiveNitro: continuously refill nitro slot ---
+        if (b_GiveNitro && vehicle) {
+            *(float*)(vehicle + 0x93C) = 1.0f;
+        }
+
+        // --- LaunchCtrl: thrust vehicle forward ---
+        if (b_LaunchCtrl && vehicle) {
+            float vx = *(float*)(vehicle + VEH_VEL_X);
+            float vy = *(float*)(vehicle + VEH_VEL_Y);
+            float spd = sqrtf(vx*vx + vy*vy);
+            if (spd < 0.7f) {
+                float ang = *(float*)(vehicle + VEH_ANGLE);
+                float boost = 0.4f;
+                *(float*)(vehicle + VEH_VEL_X) = -sinf(ang) * boost;
+                *(float*)(vehicle + VEH_VEL_Y) =  cosf(ang) * boost;
+            }
+        }
+
+        // --- Hydraulics: bounce vehicle vertically ---
+        if (b_Hydraulics && vehicle) {
+            static int hydTick = 0;
+            hydTick++;
+            float dir = ((hydTick / 5) % 2 == 0) ? 0.08f : -0.04f;
+            *(float*)(vehicle + VEH_VEL_Z) += dir;
+        }
+
+        // --- SpinnerCar: rotate vehicle heading ---
+        if (b_SpinnerCar && vehicle) {
+            float a = *(float*)(vehicle + VEH_ANGLE);
+            a += 0.2f;
+            if (a > 3.14159f) a -= 6.28318f;
+            *(float*)(vehicle + VEH_ANGLE) = a;
+        }
+
+        // --- FastStop: heavy braking ---
+        if (b_FastStop && vehicle) {
+            *(float*)(vehicle + VEH_VEL_X) *= 0.60f;
+            *(float*)(vehicle + VEH_VEL_Y) *= 0.60f;
+            *(float*)(vehicle + VEH_VEL_Z) *= 0.80f;
+        }
+
+        // --- DrawDist: write large draw distance ---
+        if (b_DrawDist) {
+            uintptr_t base = getAbsoluteAddress(libName, 0x92081c);
+            if (base) {
+                for (int i = 0; i < 40; i++) {
+                    *(float*)(base + i * 0x28) = 2000.0f;
+                }
+            }
+        }
+
+        // --- BlackSky: zero sky color table ---
+        if (b_BlackSky) {
+            uintptr_t tbl = getAbsoluteAddress(libName, OFFSET_SKY_TABLE);
+            if (tbl) {
+                for (int i = 0; i < SKY_TABLE_ENTRIES * 3; i++) {
+                    *(uint32_t*)(tbl + i * 4) = 0;
+                }
+            }
+        }
+
+        // --- NiceGraphics: high quality settings via FOV + far clip ---
+        if (b_NiceGraphics) {
+            writeFloat(OFFSET_FOV,     90.0f);
+            writeFloat(OFFSET_FOV + 4, 90.0f);
+        }
+
+        // --- BigPickups: scale pickup objects ---
+        if (b_BigPickups) {
+            // Object scale global; write after pickup container
+            uintptr_t base = getAbsoluteAddress(libName, 0x94d540 + 0x120);
+            if (base) *(float*)base = 3.0f;
+        }
+    }
+}
+
 JNIEXPORT void JNICALL
 Java_il2cpp_Main_Changes(JNIEnv *env, jobject activityObject, jint feature, jint value) {
     bool on = (value == 1);
     switch (feature) {
 
         // ===== ПЕРСОНАЖ =====
-        case 1:  b_Speed       = on; /* TODO: patch max speed */       break;
-        case 2:  b_NoCollision = on; /* TODO: patch collision check */  break;
-        case 3:  b_InfSprint   = on; /* TODO: patch sprint decrement */ break;
-        case 4:  b_Slap        = on; /* TODO */                         break;
-        case 5:  b_SpinnerPed  = on; /* TODO */                         break;
-        case 6:  b_LongJump    = on; /* TODO */                         break;
-        case 7:  b_AntiAFK     = on; /* TODO */                         break;
-        case 8:  b_NoAnim      = on; /* TODO */                         break;
-        case 9:  b_FlyPed      = on; /* TODO */                         break;
-        case 10: b_FastTurn    = on; /* TODO */                         break;
+        case 1:  b_Speed       = on; break;
+        case 2:  b_NoCollision = on; break;
+        case 3:  b_InfSprint   = on; break;
+        case 4:  b_Slap        = on; break;
+        case 5:  b_SpinnerPed  = on; break;
+        case 6:  b_LongJump    = on; break;
+        case 7:  b_AntiAFK     = on; break;
+        case 8:  b_NoAnim      = on; break;
+        case 9:  b_FlyPed      = on; break;
+        case 10: b_FastTurn    = on; break;
 
         case 11: // Флудер
             fl = !fl;
@@ -184,46 +435,52 @@ Java_il2cpp_Main_Changes(JNIEnv *env, jobject activityObject, jint feature, jint
             writeFloat(OFFSET_GRAVITY, on ? 0.0f : 0.008f);
             break;
 
-        case 14: b_WalkWater   = on; /* TODO */                         break;
-        case 15: b_AirBrake    = on; /* TODO */                         break;
-        case 16: b_FastCrash   = on; /* TODO */                         break;
+        case 14: b_WalkWater   = on; break;
+        case 15: b_AirBrake    = on; break;
+        case 16: b_FastCrash   = on; break;
 
         // ===== ОРУЖИЕ =====
-        case 17: b_InfAmmo     = on; /* TODO: patch ammo decrement */   break;
-        case 18: b_FastShoot   = on; /* TODO: patch fire delay */       break;
-        case 19: b_FakeAim     = on; /* TODO */                         break;
-        case 20: b_WallShoot   = on; /* TODO: patch bullet collision */ break;
+        case 17: b_InfAmmo     = on; break;
+        case 18: b_FastShoot   = on; break;
+        case 19: b_FakeAim     = on; break;
+        case 20: b_WallShoot   = on; break;
 
         // ===== ТРАНСПОРТ =====
-        case 21: b_CarGod      = on; /* TODO: patch vehicle damage */   break;
-        case 22: b_InfEngine   = on; /* TODO */                         break;
-        case 23: b_GiveNitro   = on; /* TODO */                         break;
-        case 24: b_LaunchCtrl  = on; /* TODO */                         break;
-        case 25: b_Hydraulics  = on; /* TODO */                         break;
-        case 26: b_AntiFine    = on; /* TODO */                         break;
-        case 27: b_SpinnerCar  = on; /* TODO */                         break;
-        case 28: b_NoSpeedLimit= on; /* TODO */                         break;
-        case 29: b_NoCarCollide= on; /* TODO */                         break;
-        case 30: b_FastStop    = on; /* TODO */                         break;
-        case 31: b_CamControl  = on; /* TODO */                         break;
+        case 21: b_CarGod      = on; break;
+        case 22: b_InfEngine   = on; break;
+        case 23: b_GiveNitro   = on; break;
+        case 24: b_LaunchCtrl  = on; break;
+        case 25: b_Hydraulics  = on; break;
+        case 26: b_AntiFine    = on; break;
+        case 27: b_SpinnerCar  = on; break;
+        case 28: b_NoSpeedLimit= on; break;
+        case 29: b_NoCarCollide= on; break;
+        case 30: b_FastStop    = on; break;
+        case 31: b_CamControl  = on; break;
 
         // ===== ВИЗУАЛ =====
-        case 32: b_DrawDist    = on; /* TODO */                         break;
-        case 33: b_BlackSky    = on; /* TODO */                         break;
-        case 34: b_NiceGraphics= on; /* TODO */                         break;
-        case 35: b_BigFOV      = on; /* TODO */                         break;
+        case 32: // Прорисовка
+            b_DrawDist = on;
+            break;
+
+        case 33: // Черное небо
+            b_BlackSky = on;
+            break;
+
+        case 34: b_NiceGraphics= on; break;
+        case 35: b_BigFOV      = on; break;
 
         case 36: // Большой FOV
             b_BigFOV = on;
-            writeFloat(OFFSET_FOV, on ? 100.0f : 45.0f);
+            writeFloat(OFFSET_FOV,     on ? 100.0f : 45.0f);
             writeFloat(OFFSET_FOV + 4, on ? 100.0f : 45.0f);
             break;
 
-        case 37: b_BigPickups  = on; /* TODO */                         break;
-        case 38: b_StopCam     = on; /* TODO */                         break;
-        case 39: b_CamHeight   = on; /* TODO */                         break;
-        case 40: b_HideNick    = on; /* TODO */                         break;
-        case 41: b_ZoomCam     = on; /* TODO */                         break;
+        case 37: b_BigPickups  = on; break;
+        case 38: b_StopCam     = on; break;
+        case 39: b_CamHeight   = on; break;
+        case 40: b_HideNick    = on; break;
+        case 41: b_ZoomCam     = on; break;
     }
 }
 
@@ -329,6 +586,9 @@ void *cheat(void *) {
               (void**) &old_ChatWindowInputHandler);
 
     real_AddChatMessage = (AddChatMessageFunc) getAbsoluteAddress(libName, 0x569C9C);
+
+    // Start per-frame feature loop
+    std::thread(gameLoop).detach();
 
     return NULL;
 }
