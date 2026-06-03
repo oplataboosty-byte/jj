@@ -132,7 +132,7 @@ Java_il2cpp_typefaces_Menu_close(JNIEnv *env, jobject activityObject) {
 
 JNIEXPORT jstring JNICALL
 Java_il2cpp_typefaces_Menu_name1(JNIEnv *env, jobject activityObject) {
-    return env->NewStringUTF("t.me/apexxsoft");
+    return env->NewStringUTF("t.me/Troll_mod");
 }
 
 JNIEXPORT jstring JNICALL
