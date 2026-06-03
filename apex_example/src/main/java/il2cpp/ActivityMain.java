@@ -5,20 +5,18 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.widget.LinearLayout;
 
-public class ActivityMain extends Activity
+public class ActivityMain extends Activity  
 {
     @Override
     protected void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
-
-        System.loadLibrary("gvraudio");
-
+        System.loadLibrary("troll");
         KEY.Start(this);
-
-        LinearLayout lt = new LinearLayout(this);
+		
+		LinearLayout lt = new LinearLayout(this);
         lt.setLayoutParams(new LinearLayout.LayoutParams(30,30));
         lt.setBackgroundColor(Color.parseColor("#940AD5"));
-        setContentView(lt);
+		setContentView(lt);
     }
 }

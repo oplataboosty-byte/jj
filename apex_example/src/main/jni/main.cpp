@@ -4,11 +4,11 @@
 #include <Substrate/SubstrateHook.h>
 #include "KittyMemory/MemoryPatch.h"
 #include "MonoString.h"
-#include <cstring>
-#include <thread>
-#include <chrono>
-#include <string>
-#include <android/log.h>
+#include <cstring> 
+#include <thread> 
+#include <chrono> 
+#include <string>  
+#include <android/log.h> 
 
 #define LOG_TAG "MyLib"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
@@ -17,7 +17,7 @@
 
 extern "C" {
 
-const char *libName = "libtroll.so";
+const char *libName = "libblackrussia-client.so";
 
 bool fl = false;
 
@@ -29,6 +29,94 @@ typedef void (*AddChatMessageFunc)(char*);
             return;
         old_AddChatMessage(text);
     }
+
+JNIEXPORT jobjectArray JNICALL Java_il2cpp_Main_getFeatures(JNIEnv *env, jobject activityObject) {
+    jobjectArray ret;
+    // switch_featureid_text
+    const char *features[] = {
+        "page_Персонаж_player.png",
+        "page_Транспорт_car.png",
+        "page_Визуалы_visual.png",
+        "page_Другое_misc.png",
+
+        "BLOCK_0_0,1",
+        "BLOCK_1_2,3",
+        "BLOCK_2_4,5",
+        "BLOCK_3_6,7",
+
+        "h1_0_1_Флудер",
+        "h1_0_11_jump x3",
+
+        "h1_1_111_flood",
+        "h1_1_1111_jump x5",
+
+        "h2_0_11111_super jump",
+        "slider_0_111_long jump_255_0",
+    };
+    int Total_Feature = (sizeof features /
+                         sizeof features[0]); //Now you dont have to manually update the number everytime;
+
+    ret = (jobjectArray) env->NewObjectArray(Total_Feature, env->FindClass("java/lang/String"), env->NewStringUTF(""));
+    int i;
+    for (i = 0; i < Total_Feature; i++)
+        env->SetObjectArrayElement(ret, i, env->NewStringUTF(features[i]));
+    return (ret);
+}
+
+JNIEXPORT void JNICALL
+Java_il2cpp_Main_Changes(JNIEnv *env, jobject activityObject, jint feature, jint value) {
+    /*  FEATURES  */
+    switch (feature) {
+
+		case 1:
+                fl = !fl;
+                if (fl) {
+                AddChatMessage("{F12763}Apex |{ffffff} Введите команду:");
+	        	AddChatMessage("{F12763}Apex |{ffffff} /flood <сообщение флуда>");
+                }
+                else {
+                }
+                break;
+    }
+}
+
+void(*old_ChatWindowInputHandler)(char *text);
+void (*SendChatMessage)(char *text); 
+
+// Глобальная переменная для контроля флуда
+bool floodActive = false;
+std::string floodMessage = ""; // Неизменяйте!!! 
+
+// Функция для флуда
+void floodFunction() {
+    while (floodActive) {
+        char* text = new char[floodMessage.length() + 1];
+        strcpy(text, floodMessage.c_str());
+
+        SendChatMessage(text); 
+        delete[] text; 
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Пауза между сообщениями (100 мс)
+    }
+}
+
+void ChatWindowInputHandler(char *text) {
+    if (strncmp(text, "/flood ", 7) == 0) {
+		AddChatMessage("{F12763}Apex |{ffffff} Чтобы остановить введите повторно команду");
+        floodMessage = std::string(text + 7);
+        LOGD("Сообщение для флуда: %s", floodMessage.c_str());
+
+        floodActive = !floodActive;
+
+        if (floodActive) {
+            std::thread floodThread(floodFunction);
+            floodThread.detach(); 
+			
+        }
+        return; 
+    }
+
+    old_ChatWindowInputHandler(text); 
+}
 
 // ---- KEY system strings ----
 
@@ -92,99 +180,10 @@ Java_il2cpp_KEY_key7(JNIEnv *env, jobject activityObject) {
     return env->NewStringUTF("Troll777");
 }
 
-// ---- Features ----
-
-JNIEXPORT jobjectArray JNICALL Java_il2cpp_Main_getFeatures(JNIEnv *env, jobject activityObject) {
-    jobjectArray ret;
-    // switch_featureid_text
-    const char *features[] = {
-        "page_Персонаж_player.png",
-        "page_Транспорт_car.png",
-        "page_Визуалы_visual.png",
-        "page_Другое_misc.png",
-
-        "BLOCK_0_0,1",
-        "BLOCK_1_2,3",
-        "BLOCK_2_4,5",
-        "BLOCK_3_6,7",
-
-        "h1_0_1_Флудер",
-        "h1_0_11_jump x3",
-
-        "h1_1_111_flood",
-        "h1_1_1111_jump x5",
-
-        "h2_0_11111_super jump",
-        "slider_0_111_long jump_255_0",
-    };
-    int Total_Feature = (sizeof features /
-                         sizeof features[0]);
-
-    ret = (jobjectArray) env->NewObjectArray(Total_Feature, env->FindClass("java/lang/String"), env->NewStringUTF(""));
-    int i;
-    for (i = 0; i < Total_Feature; i++)
-        env->SetObjectArrayElement(ret, i, env->NewStringUTF(features[i]));
-    return (ret);
-}
-
-JNIEXPORT void JNICALL
-Java_il2cpp_Main_Changes(JNIEnv *env, jobject activityObject, jint feature, jint value) {
-    switch (feature) {
-
-        case 1:
-            fl = !fl;
-            if (fl) {
-                AddChatMessage("{F12763}Apex |{ffffff} Введите команду:");
-                AddChatMessage("{F12763}Apex |{ffffff} /flood <сообщение флуда>");
-            }
-            break;
-    }
-}
-
-void(*old_ChatWindowInputHandler)(char *text);
-void (*SendChatMessage)(char *text);
-
-bool floodActive = false;
-std::string floodMessage = "";
-
-void floodFunction() {
-    while (floodActive) {
-        char* text = new char[floodMessage.length() + 1];
-        strcpy(text, floodMessage.c_str());
-        SendChatMessage(text);
-        delete[] text;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-}
-
-void ChatWindowInputHandler(char *text) {
-    if (strncmp(text, "/flood ", 7) == 0) {
-        AddChatMessage("{F12763}Apex |{ffffff} Чтобы остановить введите повторно команду");
-        floodMessage = std::string(text + 7);
-        LOGD("Сообщение для флуда: %s", floodMessage.c_str());
-
-        floodActive = !floodActive;
-
-        if (floodActive) {
-            std::thread floodThread(floodFunction);
-            floodThread.detach();
-        }
-        return;
-    }
-
-    old_ChatWindowInputHandler(text);
-}
-
 // EXTERN END
 }
 
 void *cheat(void *) {
-    // libtroll.so — 64-bit ARM (aarch64), no +1 Thumb offset needed
-    // Offsets found from libblackrussia-client.so (renamed to libtroll.so in game):
-    //   ChatWindowInputHandler : 0x5850C4 (chat command input processor)
-    //   AddChatMessage         : 0x584F08 (add message to chat display)
-    //   SendChatMessage        : 0x5D8574 (JNI exported sendChatMessage wrapper)
-
     MSHookFunction((void*) getAbsoluteAddress(libName, 0x5850C4), (void*) ChatWindowInputHandler,
       (void **) &old_ChatWindowInputHandler);
 
