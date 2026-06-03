@@ -8,7 +8,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE    := troll
 
 # Code optimization
-LOCAL_ARM_MODE := arm
 LOCAL_CFLAGS := -Wno-error=format-security -fpermissive -fvisibility=hidden -fvisibility-inlines-hidden
 LOCAL_CFLAGS += -fno-rtti -fno-exceptions -g0 -fomit-frame-pointer -ffunction-sections -fdata-sections
 LOCAL_CPPFLAGS += -fvisibility=hidden -ffunction-sections -fdata-sections

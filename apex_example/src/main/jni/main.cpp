@@ -21,13 +21,13 @@ const char *libName = "libblackrussia-client.so";
 
 bool fl = false;
 
-typedef void (*AddChatMessageFunc)(char*);
-    AddChatMessageFunc old_AddChatMessage;
+typedef void (*AddChatMessageFunc)(int color, char* text);
+    AddChatMessageFunc real_AddChatMessage = nullptr;
 
-    void AddChatMessage(char* text) {
-        if (!text)
+    void AddChatMessage(const char* text) {
+        if (!text || !real_AddChatMessage)
             return;
-        old_AddChatMessage(text);
+        real_AddChatMessage(0xBEBEBEFF, (char*)text);
     }
 
 JNIEXPORT jobjectArray JNICALL Java_il2cpp_Main_getFeatures(JNIEnv *env, jobject activityObject) {
@@ -81,21 +81,21 @@ Java_il2cpp_Main_Changes(JNIEnv *env, jobject activityObject, jint feature, jint
 }
 
 void(*old_ChatWindowInputHandler)(char *text);
-void (*SendChatMessage)(char *text); 
 
 // Глобальная переменная для контроля флуда
 bool floodActive = false;
-std::string floodMessage = ""; // Неизменяйте!!! 
+std::string floodMessage = ""; // Неизменяйте!!!
 
 // Функция для флуда
 void floodFunction() {
     while (floodActive) {
-        char* text = new char[floodMessage.length() + 1];
-        strcpy(text, floodMessage.c_str());
-
-        SendChatMessage(text); 
-        delete[] text; 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Пауза между сообщениями (100 мс)
+        if (old_ChatWindowInputHandler) {
+            char* text = new char[floodMessage.length() + 1];
+            strcpy(text, floodMessage.c_str());
+            old_ChatWindowInputHandler(text);
+            delete[] text;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
@@ -187,11 +187,7 @@ void *cheat(void *) {
     MSHookFunction((void*) getAbsoluteAddress(libName, 0x5850C4), (void*) ChatWindowInputHandler,
       (void **) &old_ChatWindowInputHandler);
 
-    MSHookFunction((void*) getAbsoluteAddress(libName, 0x584F08), (void*) AddChatMessage,
-      (void **) &old_AddChatMessage);
-
-    MSHookFunction((void*) getAbsoluteAddress(libName, 0x5D8574), (void*) SendChatMessage,
-      (void **) &SendChatMessage);
+    real_AddChatMessage = (AddChatMessageFunc) getAbsoluteAddress(libName, 0x569C9C);
 
     return NULL;
 }
