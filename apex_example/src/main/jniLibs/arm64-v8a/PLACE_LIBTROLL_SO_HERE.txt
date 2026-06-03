@@ -1,0 +1,6 @@
+Place libtroll.so here.
+
+Rename libblackrussia-client.so (game library) to libtroll.so
+and put it in this folder: src/main/jniLibs/arm64-v8a/libtroll.so
+
+This is the 64-bit arm64-v8a game library.

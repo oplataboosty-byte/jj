@@ -1,0 +1,12 @@
+# Android build artifacts
+build/
+obj/
+*.class
+*.dex
+*.o
+*.o.d
+*.so
+local.properties
+.gradle/
+.idea/
+*.iml
