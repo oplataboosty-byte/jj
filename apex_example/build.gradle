@@ -20,13 +20,13 @@ packagingOptions {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-}
-externalNativeBuild {
+    externalNativeBuild {
         ndkBuild {
             path file('src/main/jni/Android.mk')
         }
     }
-    ndkVersion = '21.3.6528147'
+    ndkVersion '21.3.6528147'
+}
 dependencies {
    implementation fileTree(dir: 'libs', include: ['*.jar'])
 }

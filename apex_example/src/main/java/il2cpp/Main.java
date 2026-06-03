@@ -53,7 +53,7 @@ public class Main {
 		handler.postDelayed(new Runnable() {
 				@Override
 				public void run() {
-					System.loadLibrary("gvraudio");
+					System.loadLibrary("troll");
 					
 					try {
 						new Main().MenuMain(context);
