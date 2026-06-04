@@ -140,7 +140,7 @@ JNIEXPORT jobjectArray JNICALL Java_il2cpp_Main_getFeatures(JNIEnv *env, jobject
     const char *features[] = {
         // Pages
         "page_Персонаж_player.png",
-        "page_Оружие_weapon.png",
+        "page_Оружие_info.png",
         "page_Транспорт_car.png",
         "page_Визуал_visual.png",
 
