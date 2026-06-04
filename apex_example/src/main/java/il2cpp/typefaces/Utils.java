@@ -1,4 +1,4 @@
-package il2cpp;
+package il2cpp.typefaces;
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.Typeface;

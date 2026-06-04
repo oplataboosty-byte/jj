@@ -1,4 +1,4 @@
-package il2cpp;
+package il2cpp.typefaces;
 
 import android.Manifest;
 import android.app.Activity;
@@ -10,10 +10,6 @@ import android.os.Handler;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Toast;
-import il2cpp.typefaces.CheckBox;
-import il2cpp.typefaces.Menu;
-import il2cpp.typefaces.Slider;
-import il2cpp.typefaces.CheckSwitch;
 
 public class Main {
 	protected static Context context;

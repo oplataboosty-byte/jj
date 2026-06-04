@@ -135,7 +135,7 @@ static inline uintptr_t getVehicle(uintptr_t ped) {
 #define OFFSET_SKY_TABLE  0x93c860
 #define SKY_TABLE_ENTRIES 64   // time-of-day entries
 
-JNIEXPORT jobjectArray JNICALL Java_il2cpp_Main_getFeatures(JNIEnv *env, jobject activityObject) {
+JNIEXPORT jobjectArray JNICALL Java_il2cpp_typefaces_Main_getFeatures(JNIEnv *env, jobject activityObject) {
     jobjectArray ret;
     const char *features[] = {
         // Pages
@@ -406,7 +406,7 @@ static void gameLoop() {
 }
 
 JNIEXPORT void JNICALL
-Java_il2cpp_Main_Changes(JNIEnv *env, jobject activityObject, jint feature, jint value) {
+Java_il2cpp_typefaces_Main_Changes(JNIEnv *env, jobject activityObject, jint feature, jint value) {
     bool on = (value == 1);
     switch (feature) {
 
@@ -533,47 +533,47 @@ Java_il2cpp_typefaces_Menu_name1(JNIEnv *env, jobject activityObject) {
 }
 
 JNIEXPORT jstring JNICALL
-Java_il2cpp_KEY_name2(JNIEnv *env, jobject activityObject) {
+Java_il2cpp_typefaces_KEY_name2(JNIEnv *env, jobject activityObject) {
     return env->NewStringUTF("Авторизация");
 }
 
 JNIEXPORT jstring JNICALL
-Java_il2cpp_KEY_name3(JNIEnv *env, jobject activityObject) {
+Java_il2cpp_typefaces_KEY_name3(JNIEnv *env, jobject activityObject) {
     return env->NewStringUTF("Введите ключ");
 }
 
 JNIEXPORT jstring JNICALL
-Java_il2cpp_KEY_name4(JNIEnv *env, jobject activityObject) {
+Java_il2cpp_typefaces_KEY_name4(JNIEnv *env, jobject activityObject) {
     return env->NewStringUTF("ВОЙТИ");
 }
 
 JNIEXPORT jstring JNICALL
-Java_il2cpp_KEY_name5(JNIEnv *env, jobject activityObject) {
+Java_il2cpp_typefaces_KEY_name5(JNIEnv *env, jobject activityObject) {
     return env->NewStringUTF("ПОЛУЧИТЬ КЛЮЧ");
 }
 
 JNIEXPORT jstring JNICALL
-Java_il2cpp_KEY_name6(JNIEnv *env, jobject activityObject) {
+Java_il2cpp_typefaces_KEY_name6(JNIEnv *env, jobject activityObject) {
     return env->NewStringUTF("Ключ верен!");
 }
 
 JNIEXPORT jstring JNICALL
-Java_il2cpp_KEY_name7(JNIEnv *env, jobject activityObject) {
+Java_il2cpp_typefaces_KEY_name7(JNIEnv *env, jobject activityObject) {
     return env->NewStringUTF("Чит запускается, подождите!");
 }
 
 JNIEXPORT jstring JNICALL
-Java_il2cpp_KEY_name8(JNIEnv *env, jobject activityObject) {
+Java_il2cpp_typefaces_KEY_name8(JNIEnv *env, jobject activityObject) {
     return env->NewStringUTF("Неверный ключ!");
 }
 
 JNIEXPORT jstring JNICALL
-Java_il2cpp_KEY_name9(JNIEnv *env, jobject activityObject) {
+Java_il2cpp_typefaces_KEY_name9(JNIEnv *env, jobject activityObject) {
     return env->NewStringUTF("Неверный ключ!");
 }
 
 JNIEXPORT jstring JNICALL
-Java_il2cpp_KEY_key7(JNIEnv *env, jobject activityObject) {
+Java_il2cpp_typefaces_KEY_key7(JNIEnv *env, jobject activityObject) {
     return env->NewStringUTF("Troll777");
 }
 
